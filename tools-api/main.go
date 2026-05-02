@@ -41,6 +41,16 @@ func main() {
 		_, _ = w.Write([]byte(`{"status":"ok","service":"tools-api"}`))
 	})
 
+	mux.HandleFunc("/openapi.yaml", func(w http.ResponseWriter, _ *http.Request) {
+		data, err := os.ReadFile("/etc/tools-api/openapi.yaml")
+		if err != nil {
+			http.Error(w, "openapi spec not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/yaml")
+		_, _ = w.Write(data)
+	})
+
 	srv := &http.Server{
 		Addr:              cfg.ListenAddr,
 		Handler:           withLogging(mux),

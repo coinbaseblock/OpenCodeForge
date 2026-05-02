@@ -49,7 +49,7 @@ services:
       - LISTEN_ADDR=:8088
       - ALLOWED_COMMANDS=${ALLOWED_COMMANDS:-go test ./...,go build ./...,npm test,npm run build,python -m pytest,docker compose config}
     volumes:
-      - ./workspace:/workspace
+      - ${WORKSPACE_HOST_DIR:-./workspace}:/workspace
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8088/health"]
@@ -57,12 +57,35 @@ services:
       timeout: 5s
       retries: 3
 
+  code-server:
+    image: codercom/code-server:latest
+    container_name: opencodeforge-code-server
+    user: "0:0"
+    ports:
+      - "${CODE_SERVER_PORT:-8443}:8080"
+    environment:
+      - PASSWORD=${CODE_SERVER_PASSWORD:-opencodeforge}
+      - DOCKER_USER=coder
+      - TOOLS_API_URL=http://tools-api:8088
+      - OLLAMA_BASE_URL=http://ollama:11434
+    volumes:
+      - ${WORKSPACE_HOST_DIR:-./workspace}:/home/coder/workspace
+      - code-server-data:/home/coder/.local/share/code-server
+      - code-server-config:/home/coder/.config
+    command:
+      - --bind-addr=0.0.0.0:8080
+      - --auth=${CODE_SERVER_AUTH:-password}
+      - /home/coder/workspace
+    depends_on:
+      - tools-api
+    restart: unless-stopped
+
   indexer:
     build:
       context: ./indexer
     container_name: opencodeforge-indexer
     volumes:
-      - ./workspace:/workspace:ro
+      - ${WORKSPACE_HOST_DIR:-./workspace}:/workspace:ro
       - ./data/index:/data/index
     environment:
       - WORKSPACE_DIR=/workspace
@@ -73,3 +96,5 @@ services:
 volumes:
   ollama-data:
   open-webui-data:
+  code-server-data:
+  code-server-config:
