@@ -5,7 +5,9 @@ OLLAMA_EXEC   ?= $(COMPOSE) exec -T ollama ollama
 DEFAULT_MODEL ?= qwen2.5-coder:14b
 
 .PHONY: help up down restart build logs ps health \
-        pull-light pull-default pull-heavy pull-deepseek pull-all \
+        pull-ultralight pull-fast pull-light pull-default pull-heavy \
+        pull-deepseek pull-golang pull-python pull-all pull-dry \
+        build-coder \
         models index reset clean \
         tools-build tools-test webui-url
 
@@ -36,19 +38,38 @@ health: ## Hit health endpoints
 	@echo
 	@curl -fsS http://localhost:$${OLLAMA_PORT:-11434}/api/tags >/dev/null && echo "ollama: ok" || echo "ollama: down"
 
-pull-light: ## Pull qwen2.5-coder:7b (fastest, low RAM)
-	$(OLLAMA_EXEC) pull qwen2.5-coder:7b
+pull-ultralight: ## Pull qwen2.5-coder:1.5b (tiny, smoke test)
+	./scripts/pull-models.sh ultralight
+
+pull-fast: ## Pull qwen2.5-coder:3b (fast autocomplete)
+	./scripts/pull-models.sh fast
+
+pull-light: ## Pull qwen2.5-coder:7b (fastest serious model, low RAM)
+	./scripts/pull-models.sh light
 
 pull-default: ## Pull qwen2.5-coder:14b (recommended default)
-	$(OLLAMA_EXEC) pull qwen2.5-coder:14b
+	./scripts/pull-models.sh default
 
 pull-heavy: ## Pull qwen2.5-coder:32b (best quality, needs RAM)
-	$(OLLAMA_EXEC) pull qwen2.5-coder:32b
+	./scripts/pull-models.sh heavy
 
 pull-deepseek: ## Pull deepseek-coder-v2:lite (MoE coder)
-	$(OLLAMA_EXEC) pull deepseek-coder-v2:lite
+	./scripts/pull-models.sh deepseek
 
-pull-all: pull-light pull-default pull-heavy pull-deepseek ## Pull every recommended model
+pull-golang: ## Pull Go-tuned set (qwen2.5-coder:3b + deepseek-coder-v2:lite)
+	./scripts/pull-models.sh golang
+
+pull-python: ## Pull Python-tuned set (qwen2.5-coder:7b + deepseek-coder-v2:lite)
+	./scripts/pull-models.sh python
+
+pull-all: ## Pull every recommended model (skips ones already installed)
+	./scripts/pull-models.sh all
+
+pull-dry: ## Show what a profile would pull without downloading (PROFILE=default)
+	./scripts/pull-models.sh $(or $(PROFILE),default) --dry-run
+
+build-coder: ## Build opencodeforge-coder model from ollama/Modelfile.coder
+	./scripts/build-coder.sh
 
 models: ## List installed models in Ollama
 	$(OLLAMA_EXEC) list

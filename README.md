@@ -73,27 +73,35 @@ configurable allowlist.
 
 ## Quick start
 
+End-to-end, from clone to chatting in Open WebUI:
+
 ```bash
+# 1. Get the code
 git clone https://github.com/coinbaseblock/OpenCodeForge.git opencodeforge
 cd opencodeforge
+
+# 2. Configure
 cp .env.example .env
 
-# Bring up Ollama, Open WebUI, and the tools API.
+# 3. Start Ollama, Open WebUI, and the tools API
 docker compose up -d --build
 
-# Pull a coding model (recommended default).
-docker exec -it opencodeforge-ollama ollama pull qwen2.5-coder:14b
+# 4. Pull a model profile (skips models you already have)
+./scripts/pull-models.sh default        # qwen2.5-coder:14b
+
+# 5. Verify
+./scripts/healthcheck.sh
+open http://localhost:3000              # macOS / xdg-open / browser
 ```
 
-Open the chat UI at <http://localhost:3000>.
-
-If you're on **Windows 11 (PowerShell)** and `make` is not available, use:
+On **Windows 11 (PowerShell)** without `make`:
 
 ```powershell
 copy .env.example .env
 docker compose up -d --build
-.\scripts\pull-models.ps1 default
+powershell -ExecutionPolicy Bypass -File .\scripts\pull-models.ps1 default
 .\scripts\healthcheck.ps1
+start http://localhost:3000
 ```
 
 If you prefer Make:
@@ -101,6 +109,7 @@ If you prefer Make:
 ```bash
 make up
 make pull-default
+make health
 make webui-url
 ```
 
@@ -110,7 +119,9 @@ make webui-url
 
 | Model                      | RAM (CPU q4) | When to use                                  |
 |----------------------------|--------------|----------------------------------------------|
-| `qwen2.5-coder:7b`         | ~6 GB        | Autocomplete, small scripts, fastest replies |
+| `qwen2.5-coder:1.5b`       | ~2 GB        | Smoke test, tiny boxes, snippet completion   |
+| `qwen2.5-coder:3b`         | ~3–4 GB      | Fast autocomplete, low-latency edits         |
+| `qwen2.5-coder:7b`         | ~6 GB        | Autocomplete, small scripts, fast replies    |
 | `qwen2.5-coder:14b`        | ~10–12 GB    | Default for serious coding & refactors       |
 | `qwen2.5-coder:32b`        | ~24–28 GB    | Long reasoning, large repos, best quality    |
 | `deepseek-coder-v2:lite`   | ~10–14 GB    | MoE alternative, strong on code reasoning    |
@@ -118,17 +129,100 @@ make webui-url
 CPU-only? Start with `:14b`. `:32b` works on 64 GB RAM but is slow without a
 GPU.
 
-Pull them with:
+### Profiles
+
+The `pull-models` scripts and `make` targets accept named profiles. Every
+profile **skips models that are already installed**, so it is safe to re-run
+after adding a new profile without re-downloading the others.
+
+| Profile      | Models pulled                                       | Notes                       |
+|--------------|-----------------------------------------------------|-----------------------------|
+| `ultralight` | `qwen2.5-coder:1.5b`                                | Smallest                    |
+| `fast`       | `qwen2.5-coder:3b`                                  | Snappy autocomplete         |
+| `light`      | `qwen2.5-coder:7b`                                  | Low-RAM serious coder       |
+| `default`    | `qwen2.5-coder:14b`                                 | Recommended baseline        |
+| `heavy`      | `qwen2.5-coder:32b`                                 | Needs lots of RAM           |
+| `deepseek`   | `deepseek-coder-v2:lite`                            | MoE coder                   |
+| `golang`     | `qwen2.5-coder:3b` + `deepseek-coder-v2:lite`       | Tuned for Go work           |
+| `python`     | `qwen2.5-coder:7b` + `deepseek-coder-v2:lite`       | Tuned for Python work       |
+| `all`        | every model above                                   | Big disk hit on first run   |
+
+Pull with the helper scripts:
 
 ```bash
-make pull-default     # 14b
-make pull-light       # 7b
-make pull-heavy       # 32b
-make pull-deepseek    # deepseek-coder-v2:lite
-make pull-all         # everything above
+./scripts/pull-models.sh ultralight
+./scripts/pull-models.sh fast
+./scripts/pull-models.sh golang
+./scripts/pull-models.sh python
+./scripts/pull-models.sh all
 ```
 
-Or use the helper scripts under `scripts/`.
+Windows PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\pull-models.ps1 ultralight
+powershell -ExecutionPolicy Bypass -File .\scripts\pull-models.ps1 fast
+powershell -ExecutionPolicy Bypass -File .\scripts\pull-models.ps1 golang
+powershell -ExecutionPolicy Bypass -File .\scripts\pull-models.ps1 python
+```
+
+Or via Make:
+
+```bash
+make pull-ultralight
+make pull-fast
+make pull-light
+make pull-default
+make pull-heavy
+make pull-deepseek
+make pull-golang
+make pull-python
+make pull-all
+```
+
+### Dry-run
+
+Want to see what a profile would download without touching the network or
+Docker? Pass `--dry-run` (bash) / `-DryRun` (PowerShell):
+
+```bash
+./scripts/pull-models.sh golang --dry-run
+make pull-dry PROFILE=python
+```
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\pull-models.ps1 golang -DryRun
+```
+
+The script prints `dry-run would pull <model>` for each model in the profile
+and exits without contacting the container.
+
+### Custom coder model (Modelfile)
+
+`ollama/Modelfile.coder` defines an `opencodeforge-coder` model: it wraps
+`qwen2.5-coder:14b` with a system prompt and code-tuned sampling parameters
+(low temperature, 16k context). Build it once after `docker compose up`:
+
+```bash
+make build-coder
+# or directly:
+./scripts/build-coder.sh
+```
+
+```powershell
+.\scripts\build-coder.ps1
+```
+
+The helper auto-pulls the `FROM` base model if it isn't installed yet, then
+runs `ollama create opencodeforge-coder -f /modelfiles/Modelfile.coder` inside
+the container. After it finishes, pick `opencodeforge-coder` in the Open WebUI
+model selector. Edit `ollama/Modelfile.coder` and re-run to update.
+
+Override the name or path:
+
+```bash
+MODEL_NAME=my-coder ./scripts/build-coder.sh
+```
 
 ---
 
@@ -259,6 +353,68 @@ path through which it touches your filesystem.
   allowlist – the deny list and path sandbox always apply.
 - **No secrets.** Don't put `.env` files with production secrets into
   `./workspace`. The Tools API has no notion of secret redaction.
+
+---
+
+## Stop, restart, and resume without re-downloading models
+
+Models live in the **named Docker volume `ollama-data`**, which is independent
+from the `ollama` container's lifecycle. As long as that volume is intact, all
+models you have already pulled stay on disk and are reused on the next start —
+no re-download.
+
+### Safe (keeps models)
+
+```bash
+# Stop and remove the containers, KEEP the volumes (default)
+docker compose down
+
+# Bring everything back up later — models are still there
+docker compose up -d
+
+# Confirm models are still installed
+docker exec -t opencodeforge-ollama ollama list
+
+# Re-running pull is safe; it will print "skip ... (already installed)"
+./scripts/pull-models.sh default
+```
+
+`docker compose stop` (without `down`) is even softer — it only pauses the
+containers; `docker compose start` resumes them without rebuilding.
+
+### Destructive (deletes models — avoid)
+
+These remove the `ollama-data` volume and force a fresh download next time:
+
+```bash
+docker compose down -v        # the -v wipes named volumes
+make reset                    # same thing, with confirmation
+./scripts/reset.sh            # same thing, with confirmation
+docker volume rm opencodeforge_ollama-data
+```
+
+Only use these when you actually want to start over.
+
+### Typical day-to-day loop
+
+```bash
+# Morning
+docker compose up -d
+./scripts/healthcheck.sh
+
+# Work in http://localhost:3000 ...
+
+# End of day
+docker compose down           # NOT down -v
+```
+
+### Where the model files live
+
+- Volume name: `opencodeforge_ollama-data` (Compose adds the project prefix)
+- Mounted inside the container at `/root/.ollama`
+- Inspect with: `docker volume inspect opencodeforge_ollama-data`
+- Back up by running an `alpine` container that mounts the volume and `tar`s
+  `/root/.ollama` to a host path.
 
 ---
 
