@@ -3,7 +3,7 @@
   Pull recommended OpenCodeForge coding models into the Ollama container.
 
 .PARAMETER Profile
-  Which set of models to pull. One of: light, default, heavy, deepseek, all.
+  Which set of models to pull. One of: ultralight, fast, light, default, heavy, deepseek, golang, python, all.
 
 .EXAMPLE
   .\scripts\pull-models.ps1 default
@@ -11,7 +11,7 @@
 #>
 [CmdletBinding()]
 param(
-  [ValidateSet('light','default','heavy','deepseek','all')]
+  [ValidateSet('ultralight','fast','light','default','heavy','deepseek','golang','python','all')]
   [string]$Profile = 'default',
   [string]$Container = 'opencodeforge-ollama'
 )
@@ -28,6 +28,11 @@ function Require-Container {
 
 function Pull-Model {
   param([string]$Name)
+  $exists = docker exec -t $Container ollama list | Select-String -SimpleMatch "$Name"
+  if ($exists) {
+    Write-Host "skip $Name (already installed)"
+    return
+  }
   Write-Host "pulling $Name ..."
   docker exec -t $Container ollama pull $Name
   if ($LASTEXITCODE -ne 0) { throw "ollama pull $Name failed" }
@@ -36,11 +41,23 @@ function Pull-Model {
 Require-Container -Name $Container
 
 switch ($Profile) {
+  'ultralight' { Pull-Model 'qwen2.5-coder:1.5b' }
+  'fast'     { Pull-Model 'qwen2.5-coder:3b' }
   'light'    { Pull-Model 'qwen2.5-coder:7b' }
   'default'  { Pull-Model 'qwen2.5-coder:14b' }
   'heavy'    { Pull-Model 'qwen2.5-coder:32b' }
   'deepseek' { Pull-Model 'deepseek-coder-v2:lite' }
+  'golang' {
+    Pull-Model 'qwen2.5-coder:3b'
+    Pull-Model 'deepseek-coder-v2:lite'
+  }
+  'python' {
+    Pull-Model 'qwen2.5-coder:7b'
+    Pull-Model 'deepseek-coder-v2:lite'
+  }
   'all' {
+    Pull-Model 'qwen2.5-coder:1.5b'
+    Pull-Model 'qwen2.5-coder:3b'
     Pull-Model 'qwen2.5-coder:7b'
     Pull-Model 'qwen2.5-coder:14b'
     Pull-Model 'qwen2.5-coder:32b'
