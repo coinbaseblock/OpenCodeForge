@@ -180,6 +180,50 @@ make pull-python
 make pull-all
 ```
 
+### Dry-run
+
+Want to see what a profile would download without touching the network or
+Docker? Pass `--dry-run` (bash) / `-DryRun` (PowerShell):
+
+```bash
+./scripts/pull-models.sh golang --dry-run
+make pull-dry PROFILE=python
+```
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\pull-models.ps1 golang -DryRun
+```
+
+The script prints `dry-run would pull <model>` for each model in the profile
+and exits without contacting the container.
+
+### Custom coder model (Modelfile)
+
+`ollama/Modelfile.coder` defines an `opencodeforge-coder` model: it wraps
+`qwen2.5-coder:14b` with a system prompt and code-tuned sampling parameters
+(low temperature, 16k context). Build it once after `docker compose up`:
+
+```bash
+make build-coder
+# or directly:
+./scripts/build-coder.sh
+```
+
+```powershell
+.\scripts\build-coder.ps1
+```
+
+The helper auto-pulls the `FROM` base model if it isn't installed yet, then
+runs `ollama create opencodeforge-coder -f /modelfiles/Modelfile.coder` inside
+the container. After it finishes, pick `opencodeforge-coder` in the Open WebUI
+model selector. Edit `ollama/Modelfile.coder` and re-run to update.
+
+Override the name or path:
+
+```bash
+MODEL_NAME=my-coder ./scripts/build-coder.sh
+```
+
 ---
 
 ## Using your own repo

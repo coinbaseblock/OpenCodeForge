@@ -5,21 +5,27 @@
 .PARAMETER Profile
   Which set of models to pull. One of: ultralight, fast, light, default, heavy, deepseek, golang, python, all.
 
+.PARAMETER DryRun
+  Print what would be pulled without contacting Docker or downloading anything.
+
 .EXAMPLE
   .\scripts\pull-models.ps1 default
   .\scripts\pull-models.ps1 all
+  .\scripts\pull-models.ps1 golang -DryRun
 #>
 [CmdletBinding()]
 param(
   [ValidateSet('ultralight','fast','light','default','heavy','deepseek','golang','python','all')]
   [string]$Profile = 'default',
-  [string]$Container = 'opencodeforge-ollama'
+  [string]$Container = 'opencodeforge-ollama',
+  [switch]$DryRun
 )
 
 $ErrorActionPreference = 'Stop'
 
 function Require-Container {
   param([string]$Name)
+  if ($DryRun) { return }
   $exists = docker inspect $Name 2>$null
   if (-not $exists) {
     Write-Error "container '$Name' not running. Run 'docker compose up -d' first."
@@ -28,6 +34,10 @@ function Require-Container {
 
 function Pull-Model {
   param([string]$Name)
+  if ($DryRun) {
+    Write-Host "dry-run would pull $Name"
+    return
+  }
   $exists = docker exec -t $Container ollama list | Select-String -SimpleMatch "$Name"
   if ($exists) {
     Write-Host "skip $Name (already installed)"
@@ -66,4 +76,6 @@ switch ($Profile) {
 }
 
 Write-Host "done."
-docker exec -t $Container ollama list
+if (-not $DryRun) {
+  docker exec -t $Container ollama list
+}

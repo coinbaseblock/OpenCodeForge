@@ -6,7 +6,8 @@ DEFAULT_MODEL ?= qwen2.5-coder:14b
 
 .PHONY: help up down restart build logs ps health \
         pull-ultralight pull-fast pull-light pull-default pull-heavy \
-        pull-deepseek pull-golang pull-python pull-all \
+        pull-deepseek pull-golang pull-python pull-all pull-dry \
+        build-coder \
         models index reset clean \
         tools-build tools-test webui-url
 
@@ -63,6 +64,12 @@ pull-python: ## Pull Python-tuned set (qwen2.5-coder:7b + deepseek-coder-v2:lite
 
 pull-all: ## Pull every recommended model (skips ones already installed)
 	./scripts/pull-models.sh all
+
+pull-dry: ## Show what a profile would pull without downloading (PROFILE=default)
+	./scripts/pull-models.sh $(or $(PROFILE),default) --dry-run
+
+build-coder: ## Build opencodeforge-coder model from ollama/Modelfile.coder
+	./scripts/build-coder.sh
 
 models: ## List installed models in Ollama
 	$(OLLAMA_EXEC) list

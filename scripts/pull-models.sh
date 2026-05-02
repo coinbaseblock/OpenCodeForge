@@ -2,20 +2,32 @@
 # Pull recommended OpenCodeForge coding models into the Ollama container.
 #
 # Usage:
-#   scripts/pull-models.sh                # pulls the default (qwen2.5-coder:14b)
-#   scripts/pull-models.sh ultralight     # 1.5b
-#   scripts/pull-models.sh fast           # 3b
-#   scripts/pull-models.sh light          # 7b
-#   scripts/pull-models.sh heavy          # 32b
-#   scripts/pull-models.sh deepseek       # deepseek-coder-v2:lite
-#   scripts/pull-models.sh golang         # optimized set for Go
-#   scripts/pull-models.sh python         # optimized set for Python
-#   scripts/pull-models.sh all            # everything
+#   scripts/pull-models.sh                  # pulls the default (qwen2.5-coder:14b)
+#   scripts/pull-models.sh ultralight       # 1.5b
+#   scripts/pull-models.sh fast             # 3b
+#   scripts/pull-models.sh light            # 7b
+#   scripts/pull-models.sh heavy            # 32b
+#   scripts/pull-models.sh deepseek         # deepseek-coder-v2:lite
+#   scripts/pull-models.sh golang           # optimized set for Go
+#   scripts/pull-models.sh python           # optimized set for Python
+#   scripts/pull-models.sh all              # everything
+#   scripts/pull-models.sh <profile> --dry-run   # show what would be pulled
 set -euo pipefail
 
 CONTAINER="${OLLAMA_CONTAINER:-opencodeforge-ollama}"
+DRY_RUN=false
+
+args=()
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run|-n) DRY_RUN=true ;;
+    *) args+=("$arg") ;;
+  esac
+done
+set -- "${args[@]:-}"
 
 require_container() {
+  if $DRY_RUN; then return; fi
   if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
     echo "error: container '$CONTAINER' not running. Run 'docker compose up -d' first." >&2
     exit 1
@@ -23,6 +35,10 @@ require_container() {
 }
 
 pull() {
+  if $DRY_RUN; then
+    echo "dry-run would pull $1"
+    return
+  fi
   if docker exec -t "$CONTAINER" ollama list | grep -Fq "$1"; then
     echo "skip $1 (already installed)"
     return
@@ -77,4 +93,6 @@ case "$profile" in
 esac
 
 echo "done."
-docker exec -t "$CONTAINER" ollama list
+if ! $DRY_RUN; then
+  docker exec -t "$CONTAINER" ollama list
+fi
