@@ -1,0 +1,2 @@
+# The indexer is intentionally dependency-free so it stays trivial to audit.
+# Add embedding libraries here when you wire it up to a vector store.
