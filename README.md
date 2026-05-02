@@ -281,10 +281,23 @@ see the same tree.
 If you prefer VS Code on the host instead of the browser:
 
 1. Install the **Dev Containers** extension (VS Code on Windows or Ubuntu).
-2. `code .` in the repo, then "Dev Containers: Reopen in Container".
-3. VS Code attaches to the `code-server` service from
-   `.devcontainer/devcontainer.json`, with ports 3000/8088/8443/11434
-   forwarded automatically.
+2. Open this repo in VS Code.
+3. Run **Dev Containers: Reopen in Container**.
+4. Choose the provided `.devcontainer/devcontainer.json` (uses the
+   `code-server` service from `docker-compose.yml`).
+5. Wait for attach; workspace opens at `/home/coder/workspace`.
+
+This configuration uses `remoteUser: root` to avoid the permission error shown
+as `mkdir: cannot create directory '/home/coder': Permission denied` when VS
+Code Server bootstraps in some Docker Desktop/WSL2 environments.
+
+If you still see attach issues, run:
+
+```bash
+docker compose down
+docker compose up -d --build
+docker compose logs --tail=100 code-server
+```
 
 #### Quick self-check (if chat can't edit files yet)
 
