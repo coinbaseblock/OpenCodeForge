@@ -87,6 +87,15 @@ docker exec -it opencodeforge-ollama ollama pull qwen2.5-coder:14b
 
 Open the chat UI at <http://localhost:3000>.
 
+If you're on **Windows 11 (PowerShell)** and `make` is not available, use:
+
+```powershell
+copy .env.example .env
+docker compose up -d --build
+.\scripts\pull-models.ps1 default
+.\scripts\healthcheck.ps1
+```
+
 If you prefer Make:
 
 ```bash
