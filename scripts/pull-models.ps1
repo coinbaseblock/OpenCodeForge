@@ -26,9 +26,9 @@ $ErrorActionPreference = 'Stop'
 function Require-Container {
   param([string]$Name)
   if ($DryRun) { return }
-  $exists = docker inspect $Name 2>$null
-  if (-not $exists) {
-    Write-Error "container '$Name' not running. Run 'docker compose up -d' first."
+  & docker inspect $Name *> $null
+  if ($LASTEXITCODE -ne 0) {
+    throw "container '$Name' not running. Run 'docker compose up -d' first."
   }
 }
 
@@ -38,13 +38,13 @@ function Pull-Model {
     Write-Host "dry-run would pull $Name"
     return
   }
-  $exists = docker exec -t $Container ollama list | Select-String -SimpleMatch "$Name"
-  if ($exists) {
+  $listOutput = & docker exec $Container ollama list 2>&1 | Out-String
+  if ($listOutput -match [regex]::Escape($Name)) {
     Write-Host "skip $Name (already installed)"
     return
   }
   Write-Host "pulling $Name ..."
-  docker exec -t $Container ollama pull $Name
+  & docker exec $Container ollama pull $Name
   if ($LASTEXITCODE -ne 0) { throw "ollama pull $Name failed" }
 }
 
@@ -77,5 +77,5 @@ switch ($Profile) {
 
 Write-Host "done."
 if (-not $DryRun) {
-  docker exec -t $Container ollama list
+  & docker exec $Container ollama list
 }

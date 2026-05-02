@@ -449,6 +449,9 @@ Then `docker compose up -d --force-recreate ollama`.
 | Patches fail to apply                         | Ensure your diff is a real unified diff with `a/` `b/`   |
 | Port already in use                           | Change `OLLAMA_PORT`/`WEBUI_PORT`/`TOOLS_PORT` in `.env` |
 | Windows: `make` not found                     | Use the PowerShell scripts in `scripts/` instead         |
+| Windows: `pull-models.ps1` always re-pulls    | You're on an old copy — pull `main`; the script must call `docker exec` (not `-t`) and parse with `Out-String` |
+| Windows: script blocked / `cannot be loaded`  | Run with `powershell -ExecutionPolicy Bypass -File .\scripts\pull-models.ps1 default` |
+| Windows: `docker exec` fails with `the input device is not a TTY` | Update to the latest scripts (we removed `-t`); or run from a real PowerShell window, not CI |
 
 ---
 

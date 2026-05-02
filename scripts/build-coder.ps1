@@ -6,8 +6,13 @@
 .PARAMETER ModelName
   Name to give the resulting model. Default: opencodeforge-coder.
 
-.PARAMETER Modelfile
-  Path inside the container to the Modelfile. Default: /modelfiles/Modelfile.coder.
+.PARAMETER ModelfilePath
+  Path on the host to the Modelfile (used to detect the FROM base).
+  Default: ollama\Modelfile.coder relative to the repo root.
+
+.PARAMETER ModelfileInContainer
+  Path inside the container where the Modelfile is mounted.
+  Default: /modelfiles/Modelfile.coder.
 
 .EXAMPLE
   .\scripts\build-coder.ps1
@@ -17,31 +22,37 @@
 param(
   [string]$Container = 'opencodeforge-ollama',
   [string]$ModelName = 'opencodeforge-coder',
-  [string]$Modelfile = '/modelfiles/Modelfile.coder'
+  [string]$ModelfilePath = (Join-Path $PSScriptRoot '..\ollama\Modelfile.coder'),
+  [string]$ModelfileInContainer = '/modelfiles/Modelfile.coder'
 )
 
 $ErrorActionPreference = 'Stop'
 
-$exists = docker inspect $Container 2>$null
-if (-not $exists) {
-  Write-Error "container '$Container' not running. Run 'docker compose up -d' first."
+& docker inspect $Container *> $null
+if ($LASTEXITCODE -ne 0) {
+  throw "container '$Container' not running. Run 'docker compose up -d' first."
 }
 
-$base = (docker exec -t $Container sh -c "grep -E '^FROM ' '$Modelfile' | awk '{print `$2}'") -replace '\s', ''
-if (-not $base) {
-  Write-Error "could not parse FROM line in $Modelfile"
+if (-not (Test-Path $ModelfilePath)) {
+  throw "Modelfile not found on host at: $ModelfilePath"
 }
 
-$installed = docker exec -t $Container ollama list | Select-String -SimpleMatch "$base"
-if (-not $installed) {
+$fromLine = Select-String -Path $ModelfilePath -Pattern '^\s*FROM\s+(\S+)' | Select-Object -First 1
+if (-not $fromLine) {
+  throw "could not parse FROM line in $ModelfilePath"
+}
+$base = $fromLine.Matches[0].Groups[1].Value
+
+$listOutput = & docker exec $Container ollama list 2>&1 | Out-String
+if ($listOutput -notmatch [regex]::Escape($base)) {
   Write-Host "base model $base missing - pulling first ..."
-  docker exec -t $Container ollama pull $base
+  & docker exec $Container ollama pull $base
   if ($LASTEXITCODE -ne 0) { throw "ollama pull $base failed" }
 }
 
-Write-Host "creating $ModelName from $Modelfile (base: $base) ..."
-docker exec -t $Container ollama create $ModelName -f $Modelfile
+Write-Host "creating $ModelName from $ModelfileInContainer (base: $base) ..."
+& docker exec $Container ollama create $ModelName -f $ModelfileInContainer
 if ($LASTEXITCODE -ne 0) { throw "ollama create $ModelName failed" }
 
 Write-Host "done."
-docker exec -t $Container ollama list
+& docker exec $Container ollama list
