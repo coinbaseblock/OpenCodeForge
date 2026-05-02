@@ -58,6 +58,7 @@ configurable allowlist.
 | `ollama`      | 11434 | Local model server (Ollama). Loads coding models.         |
 | `open-webui`  | 3000  | Web chat UI, talks to Ollama via `OLLAMA_BASE_URL`.       |
 | `tools-api`   | 8088  | Go HTTP API: list/read/write/patch/search/git/run.        |
+| `code-server` | 8443  | Browser-based VS Code, same `./workspace` mount.          |
 | `indexer`     | -     | Optional Python service. Profile `tools`. Builds JSONL.   |
 
 ---
@@ -240,6 +241,63 @@ Everything below `./workspace` is mounted into:
 - `indexer` at `/workspace` (read-only)
 
 The Tools API refuses any path that escapes `/workspace`.
+
+### Edit code in a real editor (Claude-Code-style loop)
+
+OpenCodeForge ships an in-browser VS Code (`code-server`) that mounts the
+**same** `./workspace` directory as the Tools API, so the LLM and you edit the
+exact same files. It runs on every host that supports Docker (Windows
+Docker Desktop / WSL2, Ubuntu, macOS) without installing anything else.
+
+1. `docker compose up -d --build`
+2. Open <http://localhost:8443>
+3. Login with `CODE_SERVER_PASSWORD` from your `.env` (default
+   `opencodeforge`)
+4. The chat in Open WebUI (<http://localhost:3000>) calls the Tools API,
+   which writes/patches files in the same workspace. The editor picks the
+   changes up live.
+
+#### Pointing at any host directory (Windows or Ubuntu)
+
+By default `./workspace` inside the repo is mounted. Set
+`WORKSPACE_HOST_DIR` in `.env` to point at any folder on the host:
+
+```env
+# Ubuntu / WSL2 / macOS
+WORKSPACE_HOST_DIR=/home/me/projects
+
+# Windows Docker Desktop (use forward slashes)
+WORKSPACE_HOST_DIR=C:/Users/me/projects
+
+# Windows, but running compose from inside WSL2
+WORKSPACE_HOST_DIR=/mnt/c/Users/me/projects
+```
+
+Then `docker compose up -d` — `tools-api`, `code-server`, and `indexer` all
+see the same tree.
+
+#### Attach your local VS Code via Dev Containers
+
+If you prefer VS Code on the host instead of the browser:
+
+1. Install the **Dev Containers** extension (VS Code on Windows or Ubuntu).
+2. `code .` in the repo, then "Dev Containers: Reopen in Container".
+3. VS Code attaches to the `code-server` service from
+   `.devcontainer/devcontainer.json`, with ports 3000/8088/8443/11434
+   forwarded automatically.
+
+#### Let the LLM call the Tools API automatically
+
+`tools-api` serves an OpenAPI 3.1 spec at
+<http://localhost:8088/openapi.yaml>. In Open WebUI:
+
+1. Settings → **Tools** → *Add Tool Server*
+2. URL: `http://tools-api:8088` (when WebUI runs in compose) or
+   `http://localhost:8088`
+3. Spec: `http://tools-api:8088/openapi.yaml`
+4. Enable the tool in a chat. The model can now call `readFile`,
+   `writeFile`, `applyPatch`, `searchWorkspace`, `gitDiff`, and the
+   allowlisted `runCommand` — same loop as Claude Code, fully local.
 
 ### Build an index (optional)
 

@@ -1,0 +1,28 @@
+{
+  "name": "OpenCodeForge Workspace",
+  "dockerComposeFile": ["../docker-compose.yml"],
+  "service": "code-server",
+  "workspaceFolder": "/home/coder/workspace",
+  "shutdownAction": "none",
+  "remoteUser": "coder",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-docker",
+        "golang.go",
+        "ms-python.python",
+        "esbenp.prettier-vscode"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "forwardPorts": [3000, 8088, 8443, 11434],
+  "portsAttributes": {
+    "3000":  { "label": "Open WebUI" },
+    "8088":  { "label": "Tools API" },
+    "8443":  { "label": "code-server" },
+    "11434": { "label": "Ollama" }
+  }
+}

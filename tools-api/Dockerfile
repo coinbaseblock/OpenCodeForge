@@ -13,6 +13,7 @@ RUN apk add --no-cache ca-certificates git wget patch \
     && adduser -D -u 10001 forge
 WORKDIR /workspace
 COPY --from=build /out/tools-api /usr/local/bin/tools-api
+COPY openapi.yaml /etc/tools-api/openapi.yaml
 
 ENV WORKSPACE_DIR=/workspace \
     LISTEN_ADDR=:8088 \
