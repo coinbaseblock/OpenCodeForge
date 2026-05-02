@@ -1,0 +1,75 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: opencodeforge-ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+      - ./ollama:/modelfiles:ro
+    environment:
+      - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-30m}
+      - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-1}
+      - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-1}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: opencodeforge-webui
+    ports:
+      - "${WEBUI_PORT:-3000}:8080"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - WEBUI_AUTH=${WEBUI_AUTH:-false}
+      - WEBUI_NAME=OpenCodeForge
+      - DEFAULT_USER_ROLE=${DEFAULT_USER_ROLE:-admin}
+    volumes:
+      - open-webui-data:/app/backend/data
+      - ./prompts:/prompts:ro
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: unless-stopped
+
+  tools-api:
+    build:
+      context: ./tools-api
+    container_name: opencodeforge-tools
+    ports:
+      - "${TOOLS_PORT:-8088}:8088"
+    environment:
+      - WORKSPACE_DIR=/workspace
+      - SAFE_MODE=${SAFE_MODE:-true}
+      - LISTEN_ADDR=:8088
+      - ALLOWED_COMMANDS=${ALLOWED_COMMANDS:-go test ./...,go build ./...,npm test,npm run build,python -m pytest,docker compose config}
+    volumes:
+      - ./workspace:/workspace
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8088/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  indexer:
+    build:
+      context: ./indexer
+    container_name: opencodeforge-indexer
+    volumes:
+      - ./workspace:/workspace:ro
+      - ./data/index:/data/index
+    environment:
+      - WORKSPACE_DIR=/workspace
+      - INDEX_DIR=/data/index
+    profiles:
+      - tools
+
+volumes:
+  ollama-data:
+  open-webui-data:

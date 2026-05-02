@@ -1,0 +1,7 @@
+# Drop or git-clone the repo you want the assistant to work on into this directory.
+# Example:
+#   git clone https://github.com/your/project workspace/project
+#
+# Everything inside ./workspace is mounted into the tools-api container at
+# /workspace, with a strict path sandbox. Nothing outside this directory is
+# reachable from the assistant.
