@@ -286,6 +286,29 @@ If you prefer VS Code on the host instead of the browser:
    `.devcontainer/devcontainer.json`, with ports 3000/8088/8443/11434
    forwarded automatically.
 
+#### Quick self-check (if chat can't edit files yet)
+
+Run these checks to confirm the **Claude-Code-style loop** is actually wired:
+
+```bash
+# 1) Tools API is healthy
+curl http://localhost:8088/health
+
+# 2) OpenAPI is reachable (Open WebUI tool connector uses this)
+curl -I http://localhost:8088/openapi.yaml
+
+# 3) Shared workspace mount is visible in both containers
+docker exec opencodeforge-tools sh -lc 'ls -la /workspace'
+docker exec opencodeforge-code-server sh -lc 'ls -la /home/coder/workspace'
+```
+
+If (3) shows different files, set `WORKSPACE_HOST_DIR` in `.env` and recreate:
+
+```bash
+docker compose down
+docker compose up -d --build
+```
+
 #### Let the LLM call the Tools API automatically
 
 `tools-api` serves an OpenAPI 3.1 spec at
